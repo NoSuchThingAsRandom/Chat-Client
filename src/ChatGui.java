@@ -7,7 +7,6 @@ import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.io.IOException;
-import java.net.ServerSocket;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -25,45 +24,100 @@ public class ChatGui extends JFrame implements ActionListener, KeyListener {
 
     private static Logger logger;
 
-    public String currentUser;
-    JScrollPane UserScroll;
-    private JTextArea AllMessages;
-    private JTextArea UserText;
-    private JFrame Messaging;
-    private ArrayList<String> chatNames = new ArrayList();
-    private ArrayList<JButton> users = new ArrayList<JButton>();
-    private JPanel SelectUser = new JPanel(new GridBagLayout());
+    String currentUser;
+    private JTextArea chatHistory;
+    private JTextArea userText;
+    private ArrayList<String> chatNames = new ArrayList<>();
+    private ArrayList<JButton> users = new ArrayList<>();
+    private JPanel selectUser = new JPanel(new GridBagLayout());
     private GridBagConstraints gbc;
     private Container pane = getContentPane();
     private Networking server;
+    private ArrayList<String> buttonColors = new ArrayList<>();
 
-    public ChatGui(Networking n) {
-
-        Encrypt_Messages em= new Encrypt_Messages();
+    ChatGui(Networking n) {
         server = n;
 
     }
 
-    public static void createLogger(String name) {
+    private static void createLogger() {
         try {
-            logger = Logger.getLogger(name);
+            logger = Logger.getLogger("Gui log");
             FileHandler fh;
-            fh = new FileHandler("Logs/" + name + ".log");
+            fh = new FileHandler("Logs/" + "Gui log" + ".log");
             logger.addHandler(fh);
             SimpleFormatter formatter = new SimpleFormatter();
             fh.setFormatter(formatter);
             logger.setLevel(logger.getLevel());
-            System.out.println("Log Folder Created");
-        } catch (IOException ex) {
-            logger.severe((Supplier<String>) ex);
-            Logger.getLogger(Encrypt_Messages.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (SecurityException ex) {
+        } catch (IOException | SecurityException ex) {
             logger.severe((Supplier<String>) ex);
             Logger.getLogger(Encrypt_Messages.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
 
-    public void changeButtonColour(String user, Color color) {
+    void messagingGUI() {
+        createLogger();
+        System.out.println("Messaging GUI started");
+        JFrame messaging = new JFrame();
+//Creates Clock
+        DateFormat df = new SimpleDateFormat("dd/MM/yy HH:mm");
+        JLabel info = new JLabel();
+        info.setText(df.format(new Date()));
+        Timer SimpleTimer = new Timer(30000, e -> {
+            info.setText(df.format(new Date()));
+        });
+        SimpleTimer.start();
+        logger.fine("Clock Created");
+//Creates user chats panel
+        gbc = new GridBagConstraints();
+        gbc.weightx = 1;
+        gbc.fill = GridBagConstraints.NONE;
+        gbc.gridwidth = 1;
+        selectUser.setLayout(new BoxLayout(selectUser, BoxLayout.Y_AXIS));
+        selectUser.setSize(new Dimension(500, 500));
+        updateNames();
+        JScrollPane userScroll = new JScrollPane(selectUser,
+                JScrollPane.VERTICAL_SCROLLBAR_ALWAYS,
+                JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        System.out.println("User Chats Panel Created");
+//Creates messages feed
+        JPanel Messages = new JPanel();
+        Messages.setLayout(new BoxLayout(Messages, BoxLayout.Y_AXIS));
+        chatHistory = new JTextArea(10, 30);
+        chatHistory.setBackground(Color.WHITE);
+        chatHistory.setEditable(false);
+        chatHistory.setBorder(BorderFactory.createLineBorder(Color.BLUE, 1));
+        JScrollPane MessageScroll = new JScrollPane(chatHistory,
+                JScrollPane.VERTICAL_SCROLLBAR_ALWAYS,
+                JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        System.out.println("Messages feed created");
+//Creates user text entry box
+        userText = new JTextArea(5, 30);
+        userText.setBorder(BorderFactory.createLineBorder(Color.CYAN, 1));
+        userText.setText("Enter Message. Press enter to send");
+        userText.setFocusable(true);
+        userText.addKeyListener(this);
+        userText.setPreferredSize(new Dimension(5, 20));
+        System.out.println("User text box created");
+//Adds all components to pane
+        Messages.add(info);
+        Messages.add(MessageScroll);
+        Messages.add(userText);
+        pane.add(userScroll, BorderLayout.WEST);
+        pane.add(Messages, BorderLayout.CENTER);
+        System.out.println("All components added");
+//JFrame setup
+        messaging.setTitle("Messaging - " + Encrypt_Messages.username);
+        messaging.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+        messaging.setContentPane(pane);
+        messaging.setVisible(true);
+        messaging.setSize(400, 350);
+        updateNames();
+        loadUser(currentUser);
+        System.out.println("Gui created");
+    }
+
+    void changeButtonColour(String user, Color color) {
         int x = 0;
         System.out.println("Setting the user: "+user+" to color "+ color);
         for (String current : chatNames) {
@@ -73,24 +127,6 @@ public class ChatGui extends JFrame implements ActionListener, KeyListener {
             x++;
         }
 
-    }
-
-    public void fatalError(String message) {
-        logger.severe("Fatal Error recieved, " + message);
-        JPanel dialogue = new JPanel();
-        dialogue.setLayout(new BoxLayout(dialogue, BoxLayout.Y_AXIS));
-        try {
-            ServerSocket serverSocket = new ServerSocket(1);
-        } catch (IOException ex) {
-            Logger.getLogger(ChatGui.class.getName()).log(Level.SEVERE, null, ex);
-        }
-        //Creating/adding dialogue components
-        JLabel error = new JLabel(message);
-        dialogue.add(error);
-
-        //Creating the dialogue box
-        JOptionPane.showMessageDialog(null, dialogue, "Error", JOptionPane.ERROR_MESSAGE);
-        System.exit(1);
     }
 
     public void warning(String message) {
@@ -104,52 +140,20 @@ public class ChatGui extends JFrame implements ActionListener, KeyListener {
         JOptionPane.showMessageDialog(null, dialogue, "Warning", JOptionPane.WARNING_MESSAGE);
     }
 
-    //For adding a new message to the chat
-    public void addMessage(String message, String userName) {
-        /*try {
-            System.out.println("addMessage");
-            message = message.replace("\n", "");
-//Deciding which user created the message
-            if (me == true) {
-                server.sendMsg("");
-                message = "\n" + "Me://" + message;
-                AllMessages.append(message + "\n");
-           //     Messages.get(currentUser).add(message);
+    public void fatalError(String message) {
+        logger.severe("Fatal Error received, " + message);
+        JPanel dialogue = new JPanel();
+        dialogue.setLayout(new BoxLayout(dialogue, BoxLayout.Y_AXIS));
+        //Creating/adding dialogue components
+        JLabel error = new JLabel(message);
+        dialogue.add(error);
 
-            } else {
-                System.out.println("Adding Message");
-                int count = 0;
-                for (String test : chatNames) {
-                    if (test.equals(userName)) {
-                        break;
-                    } else {
-                        count++;
-                    }
-                }
-                message = "\n" + userName + "://" + message;//Gets user name
-                Messages.get(count).add(message);
-                if (!currentChat.equals(userName)) {
-                    changeButtonColour(Color.green, count);
-                }
-            }
-            //Adding message to array
-            //THIS LINE
-            //Debugging
-            if (message.contains("\n")) {
-                logger.fine("New line");
-            }
-            pane.validate();
-            //MAJOR WORKAROUND
-            loadUser(currentUser);
-
-        } catch (IndexOutOfBoundsException ex) {
-            //  logger.severe((Supplier<String>) ex);
-            logger.severe("Something not right... in addMessage");
-        }*/
+        //Creating the dialogue box
+        JOptionPane.showMessageDialog(null, dialogue, "Error", JOptionPane.ERROR_MESSAGE);
+        System.exit(1);
     }
 
-
-    public void newUserAttempt() {
+    private void newUserAttempt() {
         System.out.println("Create new user");
         JPanel dialogue = new JPanel();
         dialogue.setLayout(new BoxLayout(dialogue, BoxLayout.Y_AXIS));
@@ -164,36 +168,33 @@ public class ChatGui extends JFrame implements ActionListener, KeyListener {
         int result = JOptionPane.showConfirmDialog(null, dialogue, "New Chat", JOptionPane.OK_CANCEL_OPTION);
         logger.fine("Dialogue box built");
         if (result == JOptionPane.OK_OPTION) {
-            Encrypt_Messages.n.queue.add(new Runnable() {
-                @Override
-                public void run() {
-                    //Getting data from dialogue box
-                    String name = getName.getText();
-                    if (!server.newChat(name)) {
-                        System.out.println("Invalid user");
-                        warning("Username not found.\nPlease try again");
-                        logger.warning("Invalid username");
-                        newUserAttempt();
+            Encrypt_Messages.n.queue.add(() -> {
+                //Getting data from dialogue box
+                String name = getName.getText();
+                if (!server.newChat(name)) {
+                    System.out.println("Invalid user");
+                    warning("Username not found.\nPlease try again");
+                    logger.warning("Invalid username");
+                    newUserAttempt();
 
-                    } else {
-                        System.out.println("User success");
+                } else {
+                    System.out.println("User success");
 
-                        //Try connecting to other user here
-                        System.out.println("Connected to new chat.");
-                        chatNames.add(name);
-                        newUserButton();
+                    //Try connecting to other user here
+                    System.out.println("Connected to new chat.");
+                    chatNames.add(name);
+                    newUserButton();
 
-                        System.out.println("Connected to client");
-                    }
+                    System.out.println("Connected to client");
                 }
             });
         }
         logger.fine("User cancelled");
     }
 
-    public void newUserButton() {
+    private void newUserButton() {
         System.out.println("New user button requested");
-        Encrypt_Messages.Messages.add(new ArrayList());//New user
+        Encrypt_Messages.Messages.add(new ArrayList<>());//New user
         //adds new UserButton
         //SelectUser.add(users.get(0), gbc);
         int temp = users.size();
@@ -201,141 +202,83 @@ public class ChatGui extends JFrame implements ActionListener, KeyListener {
         users.get(temp).addActionListener(this);
         users.get(temp).setBackground(Color.CYAN);
         users.get(temp).setSize(new Dimension(500, 500));
-        SelectUser.add(users.get(temp), gbc);
+        selectUser.add(users.get(temp), gbc);
         //pane.invalidate();
         pane.validate();
         System.out.println("New user button added");
         Encrypt_Messages.Messages.get(Encrypt_Messages.Messages.size() - 1).add("Chat Established");
     }
 
-    ArrayList<String> buttonColors=new ArrayList<>();
-    public void updateNames() {
-        Encrypt_Messages.n.queue.add(new Runnable() {
-            @Override
-            public void run() {
-                int count=0;
-                for(JButton b:users){
-                    Color c=b.getBackground();
-                    if(c.equals(Color.red)){
-                        System.out.println("User has a color: "+b.getText());
-                        buttonColors.add(chatNames.get(count));
-                    }
-                    System.out.println(b.getBackground());
-                    count++;
+    void updateNames() {
+        Encrypt_Messages.n.queue.add(() -> {
+            int count = 0;
+            for (JButton b : users) {
+                Color c = b.getBackground();
+                if (c.equals(Color.red)) {
+                    System.out.println("User has a color: " + b.getText());
+                    buttonColors.add(chatNames.get(count));
                 }
-                SelectUser.removeAll();
-                chatNames.clear();
-                users.clear();
-                JButton newUser = new JButton("+");
-                newUser.addActionListener(new ActionListener() {
-                    @Override
-                    public void actionPerformed(ActionEvent e) {
-                        newUserAttempt();
+                System.out.println(b.getBackground());
+                count++;
+            }
+            selectUser.removeAll();
+            chatNames.clear();
+            users.clear();
+            JButton newUser = new JButton("+");
+            newUser.addActionListener(e -> newUserAttempt());
+            selectUser.add(newUser);
+            for (String name : server.loadNames()) {
+                chatNames.add(name);
+                users.add(new JButton(name));
+                System.out.println("Adding: " + name);
+                if (buttonColors.contains(name)) {
+                    users.get(users.size() - 1).setBackground(Color.red);
+                } else {
+                    users.get(users.size() - 1).setBackground(Color.cyan);
+                }
+                users.get(users.size() - 1).addActionListener(evt -> {
+                    System.out.println("Button pressed");
+                    String source = evt.getActionCommand();
+                    int x = 0;
+                    for (String name1 : chatNames) {
+                        System.out.println("Testing: " + name1);//THIS LINE
+                        if (source.equals(name1)) {       //THIS LINE
+                            changeButtonColour(currentUser, Color.CYAN);
+                            pane.validate();
+                            currentUser = name1;
+                            System.out.println("Current user changed to, " + currentUser + ", " + chatNames.get(x));
+                            loadUser(currentUser);
+                            System.out.println("Done");
+                            break;
+                        }
+                        x++;
                     }
+                    System.out.println("Finished button press");
                 });
-                SelectUser.add(newUser);
-                for (String name : server.loadNames()) {
-                    chatNames.add(name);
-                    users.add(new JButton(name));
-                    System.out.println("Adding: "+name);
-                    if(buttonColors.contains(name)){
-                        users.get(users.size()-1).setBackground(Color.red);
-                    }else{
-                        users.get(users.size()-1).setBackground(Color.cyan);
-                    }
-                    users.get(users.size() - 1).addActionListener(new ActionListener() {
-                        @Override
-                        public void actionPerformed(ActionEvent evt) {
-                            System.out.println("Button pressed");
-                            String source = (String) evt.getActionCommand();
-                            int x = 0;
-                            for (String name : chatNames) {
-                                System.out.println("Testing: " + name);//THIS LINE
-                                if (source.equals(name)) {       //THIS LINE
-                                    changeButtonColour(currentUser, Color.CYAN);
-                                    pane.validate();
-                                    currentUser = name;
-                                    System.out.println("Current user changed to, " + currentUser + ", " + chatNames.get(x));
-                                    loadUser(currentUser);
-                                    System.out.println("Done");
-                                    break;
-                                }
-                                x++;
-                            }
-                            System.out.println("Finished button press");
-                        }
-                    });
-                    SelectUser.add(users.get(users.size() - 1), gbc);
+                selectUser.add(users.get(users.size() - 1), gbc);
 
-                }
-                changeButtonColour(currentUser, Color.green);
-                buttonColors.clear();
-                pane.validate();
-                System.out.println("Updated names");
             }
-
+            changeButtonColour(currentUser, Color.green);
+            buttonColors.clear();
+            pane.validate();
+            System.out.println("Updated names");
         });
 
 
 
     }
-    public void updateNamesOLD() {
-        SelectUser.removeAll();
-        chatNames.clear();
-        users.clear();
-        Encrypt_Messages.n.queue.add(new Runnable() {
-            @Override
-            public void run() {
-                for (String name : server.loadNames()) {
-                    chatNames.add(name);
-                    users.add(new JButton(name));
-                    System.out.println("Adding: " + name);
-                    users.get(users.size() - 1).addActionListener(new ActionListener() {
-                        @Override
-                        public void actionPerformed(ActionEvent evt) {
-                            System.out.println("Button pressed");
-                            String source = (String) evt.getActionCommand();
-                            int x = 0;
-                            for (String name : chatNames) {
-                                System.out.println("Testing: " + name);//THIS LINE
-                                if (source.equals(name)) {       //THIS LINE
-                                    currentUser = name;
-                                    System.out.println("Current user changed to, " + currentUser + ", " + chatNames.get(x));
-                                    loadUser(currentUser);
-                                    System.out.println("Done");
-                                    break;
-                                }
-                                x++;
-                            }
-                            System.out.println("Finished button press");
-                        }
-                    });
-                    SelectUser.add(users.get(users.size() - 1), gbc);
 
-                    JButton newUser = new JButton("+");
-                    newUser.addActionListener(e -> newUserAttempt());
-                    SelectUser.add(newUser);
-
-                }
-            }
-        });
-    }
-
-
-    public void loadUser(String user) {
+    void loadUser(String user) {
         if(!(user == null)) {
             changeButtonColour(user, Color.green);
             System.out.println("Loading user");
             Encrypt_Messages.userLoaded = true;
-            AllMessages.setText("");
+            chatHistory.setText("");
             currentUser = user;
-            Encrypt_Messages.n.queue.add(new Runnable() {
-                @Override
-                public void run() {
-                    for (String msg : server.loadMessages(user)) {             //THIS LINE
-                        AllMessages.append(msg + "\n");         //THIS LINE
+            Encrypt_Messages.n.queue.add(() -> {
+                for (String msg : server.loadMessages(user)) {             //THIS LINE
+                    chatHistory.append(msg + "\n");         //THIS LINE
 
-                    }
                 }
             });
             pane.validate();
@@ -347,88 +290,13 @@ public class ChatGui extends JFrame implements ActionListener, KeyListener {
     }
 
 
-    public void messagingGUI() {
-        createLogger("Gui log");
-        System.out.println("Messaging GUI started");
-//Creates JFrame and pane         
-        Messaging = new JFrame();
-//Creates Clock        
-        String date = null;
-        String time = null;
-        DateFormat df = new SimpleDateFormat("dd/MM/yy HH:mm");
-        JLabel info = new JLabel();
-        info.setText(df.format(new Date()));
-        Timer SimpleTimer = new Timer(30000, new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                info.setText(df.format(new Date()));
-                // System.out.println("The time is " + df.format(new Date()));
-            }
-        });
-        SimpleTimer.start();
-        logger.fine("Clock Created");
-//Creates user chats panel        
-        gbc = new GridBagConstraints();
-        gbc.weightx = 1;
-        gbc.fill = GridBagConstraints.NONE;
-        gbc.gridwidth = 1;
 
-        SelectUser.setLayout(new BoxLayout(SelectUser, BoxLayout.Y_AXIS));
-        SelectUser.setSize(new Dimension(500, 500));
-        System.out.println("User Chats Panel Created");
-//Adds different chats
-        updateNames();
-        UserScroll = new JScrollPane(SelectUser,
-                JScrollPane.VERTICAL_SCROLLBAR_ALWAYS,
-                JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-        System.out.println("Added multiple chats");
-//Creates messages feed        
-        JPanel Messages = new JPanel();
-        Messages.setLayout(new BoxLayout(Messages, BoxLayout.Y_AXIS));
-        AllMessages = new JTextArea(10, 30);
-        AllMessages.setBackground(Color.WHITE);
-        AllMessages.setEditable(false);
-        AllMessages.setBorder(BorderFactory.createLineBorder(Color.BLUE, 1));
-        JScrollPane MessageScroll = new JScrollPane(AllMessages,
-                JScrollPane.VERTICAL_SCROLLBAR_ALWAYS,
-                JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-        System.out.println("Messages feed created");
-//Creates user text entry box        
-        UserText = new JTextArea(5, 30);
-        //UserText.setLineWrap(true);
-        //UserText.setWrapStyleWord(true);
-        UserText.setBorder(BorderFactory.createLineBorder(Color.CYAN, 1));
-        UserText.setText("Enter Message. Press enter to send");
-        UserText.setFocusable(true);
-        UserText.addKeyListener(this);
-        UserText.setPreferredSize(new Dimension(5, 20));
-        logger.fine("User text box created");
-//Adds all components to pane        
-        Messages.add(info);
-        Messages.add(MessageScroll);
-        Messages.add(UserText);
-        pane.add(UserScroll, BorderLayout.WEST);
-        pane.add(Messages, BorderLayout.CENTER);
-        System.out.println("All components added");
-
-//Load all chat names              
-
-//JFrame setup        
-        Messaging.setTitle("Messaging - "+Encrypt_Messages.username);
-        Messaging.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        Messaging.setContentPane(pane);
-        Messaging.setVisible(true);
-        Messaging.setSize(400, 350);
-        updateNames();
-        loadUser(currentUser);
-        System.out.println("Gui created");
-    }
 //When button pressed    
 
     @Override
     public void actionPerformed(ActionEvent evt) {
         System.out.println("Button pressed");
-        String source = (String) evt.getActionCommand();
+        String source = evt.getActionCommand();
         if ("+".equals(source)) {
             newUserAttempt();
         }
@@ -463,32 +331,29 @@ public class ChatGui extends JFrame implements ActionListener, KeyListener {
         //    System.out.println("key typed");
         if (e.getKeyChar() == (KeyEvent.VK_ENTER)) {
             System.out.println("New message");
-            message = UserText.getText();
+            message = userText.getText();
             message = message.replaceAll("\n", "");
             System.out.println("The message is: " + message);
             if (Encrypt_Messages.userLoaded) {
                 if (message.length() >= 1) {
                     System.out.println("The user is: " + currentUser);
-                    Encrypt_Messages.n.queue.add(new Runnable() {
-                        @Override
-                        public void run() {
-                            if(!server.newMessage(currentUser, message)){
-                                System.out.println("Sending the message: "+message+" to "+ currentUser+" has failed");
-                                System.exit(1);
-                            }
+                    Encrypt_Messages.n.queue.add(() -> {
+                        if (!server.newMessage(currentUser, message)) {
+                            System.out.println("Sending the message: " + message + " to " + currentUser + " has failed");
+                            System.exit(1);
                         }
                     });
-                    AllMessages.append(currentUser+": "+message+"\n");
+                    chatHistory.append(currentUser + ": " + message + "\n");
                 } else {
                     System.out.println("Empty Message");
-                    AllMessages.append("Empty Message");
+                    chatHistory.append("Empty Message");
                 }
             } else {
                 logger.warning("No user found");
-                AllMessages.append("No user found!!!\n");
+                chatHistory.append("No user found!!!\n");
             }
-            UserText.setText("");
-            UserText.setCaretPosition(0);
+            userText.setText("");
+            userText.setCaretPosition(0);
             updateNames();
         }
     }
