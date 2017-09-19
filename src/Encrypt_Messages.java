@@ -1,16 +1,7 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
-
 import java.awt.*;
-import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.logging.*;
-
-import static java.util.logging.Level.FINEST;
 
 /**
  * Server Sends data to client Client receives data from server
@@ -18,7 +9,7 @@ import static java.util.logging.Level.FINEST;
  * @author Sam
  */
 public class Encrypt_Messages extends Thread {
-//Public Variables    
+//Public Variables
 
     // public static final String serverIP="81.98.97.160";
     public static final String serverIP = "192.168.0.100";
@@ -26,29 +17,63 @@ public class Encrypt_Messages extends Thread {
     public static String username = "No username";
     public static boolean userLoaded = false;
 
-    public static int[] key;
-    public static String currentChat;
-    // public static ArrayList<ArrayList<ArrayList<String>>> Users_Messages_Data = new ArrayList<ArrayList<ArrayList<String>>>();//Format equals below 
 
-    public static ArrayList<String> keys = new ArrayList();
-    public static ArrayList<String> chatNames = new ArrayList();
     public static ArrayList<ArrayList<String>> Messages = new ArrayList<ArrayList<String>>();
-    // public static ArrayList<ArrayList<String>> DataOLD = new ArrayList<ArrayList<String>>();//Format equals below 
-    //public static ArrayList<SendingMessageClient> smc = new ArrayList();
-    //public static ArrayList<Boolean> aliveUsers = new ArrayList();
     public static Logger logger;
-    public static Logger l;
-    ;
+
     public static Networking n;
     private static FileHandler fh;
 
+
+    public static void startGui() {
+        System.out.println("Start gui");
+        ChatGui cg = new ChatGui(n);
+        cg.messagingGUI();
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    while (true) {
+
+                        System.out.println("Slept");
+                        n.queue.add(() -> {
+                            System.out.println("Check messages");
+                            ArrayList<String> chats = n.checkMessages();
+                            for (String user : chats) {
+                                System.out.println("Found users: " + user);
+                                cg.changeButtonColour(user, Color.red);
+                                if (user.equals(cg.currentUser)) {
+                                    cg.loadUser(cg.currentUser);
+                                }
+                            }
+                            System.out.println("Done");
+                        });
+                        cg.updateNames();
+                        Thread.sleep(5000);
+                    }
+
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+
+        }).start();
+
+    }
+
+
+    public static void main(String[] args) throws IOException {
+        n = new Networking();
+        n.init();
+        System.out.println("Startup complete");
+    }
+}
+
+    /*
     //Runs the methods
     public static void createLogger(String name) {
-
         try {
-
             logger = Logger.getLogger(name);
-
             fh = new FileHandler("Logs/" + name + ".log");
             fh.setLevel(FINEST);
             logger.addHandler(fh);
@@ -69,7 +94,6 @@ public class Encrypt_Messages extends Thread {
         }
     }
 
-
     public static void saveData() {
         logger.info("Saving Data");
         File logFolder = new File("Logs");
@@ -83,56 +107,6 @@ public class Encrypt_Messages extends Thread {
 
     }
 
-
-    public static void startGui() {
-        System.out.println("Start gui");
-        ChatGui cg = new ChatGui(n);
-        cg.messagingGUI();
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                    try {
-                        while (true) {
-
-                        System.out.println("Slept");
-                            n.queue.add(() -> {
-                                System.out.println("Check messages");
-                                ArrayList<String> chats = n.checkMessages();
-                                for (String user : chats) {
-                                    System.out.println("Found users: " +user);
-                                    cg.changeButtonColour(user, Color.red);
-                                    if (user.equals(cg.currentUser)) {
-                                        cg.loadUser(cg.currentUser);
-                                    }
-                                }
-                                System.out.println("Done");
-                            });
-                            cg.updateNames();
-                            Thread.sleep(5000);
-                        }
-
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                }
-
-        }).start();
-
-    }
-
-
-    public static void main(String[] args) throws IOException {
-        //  System.exit(1);
-
-        n = new Networking();
-        n.init();
-
-//        n.loadData();
-        System.out.println("Startup complete");
-
-
-
-        /*
         Runtime.getRuntime().addShutdownHook(new Thread() {
             public void run() {
                 killChats();
@@ -154,27 +128,4 @@ public class Encrypt_Messages extends Thread {
         createLogger("MainLog");
 
 
-/*        Data.add(new ArrayList());//Adds client port array          2
-        Data.add(new ArrayList());//Adds server port array          3
-        Data.add(new ArrayList());//Local Adds public key array     4
-        Data.add(new ArrayList());//Local Adds private key array    5
-        Data.add(new ArrayList());//Local Adds session key array    6
-        Data.add(new ArrayList());//Recieved Adds public key array  7
-        Data.add(new ArrayList());//Recieved Adds session key array 8
-
-        logger.info("Data arraylist created.");
-
-        ChatGui exc = new ChatGui();
-        username = exc.getInput("What is your username?");
-        if (username == null) {
-            username = "Dipshit";
-        }
-
-        exc.messagingGUI();
-        logger.info("Gui Started");
-        Thread initServer = new Thread(new Initialisation(exc));
-        logger.info("Listening Server Started");
-        initServer.start();
-         */
-    }
-}
+*/
