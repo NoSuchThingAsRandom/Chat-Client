@@ -140,18 +140,7 @@ public class ChatGui extends JFrame implements ActionListener, KeyListener {
         JOptionPane.showMessageDialog(null, dialogue, "Warning", JOptionPane.WARNING_MESSAGE);
     }
 
-    public void fatalError(String message) {
-        logger.severe("Fatal Error received, " + message);
-        JPanel dialogue = new JPanel();
-        dialogue.setLayout(new BoxLayout(dialogue, BoxLayout.Y_AXIS));
-        //Creating/adding dialogue components
-        JLabel error = new JLabel(message);
-        dialogue.add(error);
 
-        //Creating the dialogue box
-        JOptionPane.showMessageDialog(null, dialogue, "Error", JOptionPane.ERROR_MESSAGE);
-        System.exit(1);
-    }
 
     private void newUserAttempt() {
         System.out.println("Create new user");

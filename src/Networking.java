@@ -42,6 +42,19 @@ public class Networking implements KeyListener {
     private boolean vis = false;
     private boolean wait = true;
 
+    public void fatalError(String message) {
+        // logger.severe("Fatal Error received, " + message);
+        JPanel dialogue = new JPanel();
+        dialogue.setLayout(new BoxLayout(dialogue, BoxLayout.Y_AXIS));
+        //Creating/adding dialogue components
+        JLabel error = new JLabel(message);
+        dialogue.add(error);
+
+        //Creating the dialogue box
+        JOptionPane.showMessageDialog(null, dialogue, "Error", JOptionPane.ERROR_MESSAGE);
+        System.exit(1);
+    }
+
     public String getMsg() {
         try {
             String iv = in.readLine();
@@ -54,7 +67,7 @@ public class Networking implements KeyListener {
             return msg;
         } catch (IOException ex) {
             Logger.getLogger(Networking.class.getName()).log(Level.SEVERE, null, ex);
-            System.exit(1);
+            fatalError("Decoding message from server caused a catastrophic error.");
         }
         return null;
     }
@@ -79,7 +92,7 @@ public class Networking implements KeyListener {
             connect(portNumber);
         } catch (IOException ex) {
             System.out.println("Can't connect to server.\nTry again later.");
-            System.exit(1);
+            fatalError("Can't connect to server.\nTry again later.");
         }
 
     }
@@ -105,15 +118,12 @@ public class Networking implements KeyListener {
                     logIn("");
                 }
             });
-            while (true){
+            while (true) {
                 queue.take().run();
             }
-
-
-
         } catch (IOException ex) {
             Logger.getLogger(Networking.class.getName()).log(Level.SEVERE, null, ex);
-            System.exit(1);
+            fatalError("Fatal error occurred after connecting to server.");
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -158,7 +168,7 @@ public class Networking implements KeyListener {
                     logIn("Invalid username or password");
                 } else if (!mess.equals("//SUCCESSFUL//")) {
                     System.out.println("Not successful");
-                    System.exit(1);
+                    fatalError("Failed to log in.");
                 }else {
                     Encrypt_Messages.startGui();
                 }
@@ -170,7 +180,7 @@ public class Networking implements KeyListener {
                 break;
 
             case 2:
-                System.out.println("THIS");
+                System.out.println("User quit.");
                  System.exit(0);
 
         }
@@ -225,8 +235,8 @@ public class Networking implements KeyListener {
         passwordCheck = new JPasswordField("");
         dialogue.add(passwordCheck);
 
-        getPassword.addKeyListener((KeyListener) this);
-        passwordCheck.addKeyListener((KeyListener) this);
+        getPassword.addKeyListener(this);
+        passwordCheck.addKeyListener(this);
 
         JPanel buttons = new JPanel();
         JButton okButton = new JButton("Ok");
@@ -259,7 +269,7 @@ public class Networking implements KeyListener {
                                                        logIn("");
                                                    } else {
                                                        System.out.println("SOMETHING FAILED");
-                                                       System.exit(1);
+                                                       fatalError("Something serious failed, creating a new user.");
                                                    }
                                                } else {
                                                    System.out.println("Name is invalid");
@@ -292,7 +302,6 @@ public class Networking implements KeyListener {
 
         frame.setSize(
                 300, 320);
-        ;
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
         frame.setContentPane(pane);

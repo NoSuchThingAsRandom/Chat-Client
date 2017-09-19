@@ -1,7 +1,9 @@
+import javax.swing.*;
 import java.awt.*;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.logging.*;
+import java.util.logging.FileHandler;
+import java.util.logging.Logger;
 
 /**
  * Server Sends data to client Client receives data from server
@@ -23,6 +25,19 @@ public class Encrypt_Messages extends Thread {
 
     public static Networking n;
     private static FileHandler fh;
+
+    public void fatalError(String message) {
+        logger.severe("Fatal Error received, " + message);
+        JPanel dialogue = new JPanel();
+        dialogue.setLayout(new BoxLayout(dialogue, BoxLayout.Y_AXIS));
+        //Creating/adding dialogue components
+        JLabel error = new JLabel(message);
+        dialogue.add(error);
+
+        //Creating the dialogue box
+        JOptionPane.showMessageDialog(null, dialogue, "Error", JOptionPane.ERROR_MESSAGE);
+        System.exit(1);
+    }
 
 
     public static void startGui() {
